@@ -85,7 +85,29 @@ def standardize(decoder_input, geometry_internal_value):
     return decoder_input
 
 
-#TODO extract freestream_pressure, freestream_velocity and fluid density from label data to put into the normalize pressure_coefficient function
+@jax.jit
+def standardize_pressure_and_velocity(decoder_input, geometry_internal_value):
+
+    h , w, c = decoder_input.shape
+    
+    for i in range(c):
+
+        field_copy = jnp.copy(decoder_input[:,:,i])
+
+        field_copy = jnp.where(field_copy == geometry_internal_value, jnp.nan, field_copy)    
+
+        mean = jnp.nanmean(field_copy)
+        std_deviation = jnp.nanstd(field_copy)
+
+        result = jnp.where(decoder_input[:, :, i] != geometry_internal_value,(decoder_input[:, :, i] - mean) / std_deviation, geometry_internal_value)
+        decoder_input = decoder_input.at[:, :, i].set(result)
+    
+    return decoder_input
+
+
+
+
+#TODO extract mach from label data to put into the normalize pressure_coefficient function
 def process_label(label):
     mach = []
 
@@ -152,9 +174,12 @@ def pressure_preprocessing(batch, config):
     vectorized_normalize_pressure_coefficient = jax.vmap(normalize_pressure_coefficient,in_axes=(0,0,None))
     vectorized_range = jax.vmap(scale_to_range,in_axes=(0,None,None))
     vectorized_standardize = jax.vmap(standardize, in_axes=(0,None))
+    vectorized_standardize_all = jax.vmap(standardize_pressure_and_velocity, in_axes=(0,None))
 
     if type == 'standardize':
         batch['decoder'] = vectorized_standardize(decoder_input, internal_value)
+    if type == 'standardize_all':
+        batch['decoder'] = vectorized_standardize_all(decoder_input, internal_value)    
     elif type == 'range':
         batch['decoder'] = vectorized_range(decoder_input, range_array, internal_value)
     elif type == 'coefficient':

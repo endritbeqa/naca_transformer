@@ -23,7 +23,7 @@ def plot_fields(config: ConfigDict, predictions, ground_truth, epoch, idx):
     for i in range(nrows):
         z1, z2 = predictions[:, :, i], ground_truth[:, :, i]
 
-        geometry_mask_prediction = (z1 >= config.internal_geometry.value-1e-3) & (z1 <= config.internal_geometry.value+1e-3)
+        geometry_mask_prediction = (z1 >= config.internal_geometry.value-1e-2) & (z1 <= config.internal_geometry.value+1e-2)
         geometry_mask_ground_truth = (z2 == config.internal_geometry.value)
 
         if i == 0:
@@ -34,7 +34,7 @@ def plot_fields(config: ConfigDict, predictions, ground_truth, epoch, idx):
         im0 = ax[i, 0].pcolormesh(
             x, y, z1, vmin=lower_limit, vmax=upper_limit,
         )
-        #im0.set_array(np.ma.array(z1, mask=geometry_mask_prediction))
+        im0.set_array(np.ma.array(z1, mask=geometry_mask_prediction))
 
         im1 = ax[i, 1].pcolormesh(
             x, y, z2, vmin=lower_limit, vmax=upper_limit,
@@ -85,7 +85,7 @@ def plot_predictions(config: ConfigDict, predictions, ground_truth, epoch, idx):
 
         z1, z2 = predictions[:, :, i], ground_truth[:, :, i]
 
-        geometry_mask_prediction = (z1 >= config.internal_geometry.value-1e-3) & (z1 <= config.internal_geometry.value+1e-3)
+        geometry_mask_prediction = (z1 >= config.internal_geometry.value-1e-2) & (z1 <= config.internal_geometry.value+1e-2)
         geometry_mask_ground_truth = (z2 == config.internal_geometry.value)
 
 
@@ -96,7 +96,7 @@ def plot_predictions(config: ConfigDict, predictions, ground_truth, epoch, idx):
 
         im0 = ax[0].pcolormesh(
             x, y, z1, vmin=lower_limit, vmax=upper_limit)
-        #im0.set_array(np.ma.array(z1, mask=geometry_mask_prediction))
+        im0.set_array(np.ma.array(z1, mask=geometry_mask_prediction))
         
 
         im1 = ax[1].pcolormesh(

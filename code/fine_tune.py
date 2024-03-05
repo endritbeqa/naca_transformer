@@ -1,50 +1,25 @@
-# ----------------------------------------------------------------------------
-# Created By  : Sebastian Widmann
-# Institution : TU Munich, Department of Aerospace and Geodesy
-# Created Date: March 21, 2023
-# version ='1.0'
-# ---------------------------------------------------------------------------
-from absl import logging
-from flax.training import train_state, orbax_utils
-import jax
-import jax.numpy as jnp
-from ml_collections import ConfigDict
-import numpy as np
-import optax
-import orbax
-import orbax.checkpoint as ocp
-import tensorflow_datasets as tfds
-from src.utilities.pressure_preprocesing import *
 import os
+from flax.training import train_state, orbax_utils, common_utils
+import jax
+import orbax
+import jax.numpy as jnp
+from flax import traverse_util
+import optax
+from ml_collections import ConfigDict, FrozenConfigDict
+import tensorflow_datasets as tfds
+import tensorflow as tf
+from jax.random import PRNGKey
+import logging
+from flax import traverse_util
+import numpy as np
+from typing import Tuple, Any
 
-from typing import Any, Tuple
-
-from src.transformer.input_pipeline import get_data_from_tfds
 from src.transformer.network import VisionTransformer
+from src.transformer.input_pipeline import get_data_from_tfds
 from src.utilities.schedulers import load_learning_rate_scheduler
-from src.utilities.visualisation import plot_delta, \
-    plot_loss, plot_fields
+from src.utilities.visualisation import plot_predictions, plot_delta, plot_loss, plot_fields
+from src.utilities.pressure_preprocesing import *
 
-PRNGKey = Any
-
-
-def create_train_state(config: ConfigDict, lr_scheduler, rng: PRNGKey) -> \
-        train_state.TrainState:
-    # Create model instance
-    model = VisionTransformer(config.vit)
-
-    # Initialise model and use JIT to reside params in CPU memory
-    variables = jax.jit(lambda: model.init(rng, jnp.ones(
-        [config.batch_size, *config.vit.img_size, 1]), jnp.ones(
-        [config.batch_size, *config.vit.img_size, 3]), train=False),
-                        )()
-
-    # Initialise train state
-    tx = optax.adamw(learning_rate=lr_scheduler,
-                     weight_decay=config.weight_decay)
-
-    return train_state.TrainState.create(
-        apply_fn=model.apply, params=variables['params'], tx=tx)
 
 
 @jax.jit
@@ -61,6 +36,7 @@ def train_step(state: train_state.TrainState, batch: jnp.ndarray,
                                )
 
         loss = optax.huber_loss(preds, batch['decoder']).mean()
+        #loss = optax.squared_error(preds, batch['decoder']).mean()
 
         return loss, preds
 
@@ -70,7 +46,6 @@ def train_step(state: train_state.TrainState, batch: jnp.ndarray,
 
     return state, loss
 
-
 @jax.jit
 def test_step(state: train_state.TrainState, batch: jnp.ndarray):
     preds = state.apply_fn({'params': state.params},
@@ -79,26 +54,65 @@ def test_step(state: train_state.TrainState, batch: jnp.ndarray):
                            )
 
     loss = optax.huber_loss(preds, batch['decoder']).mean()
-
+    #loss = optax.squared_error(preds, batch['decoder']).mean()
+        
     mae = jnp.absolute(batch['decoder'] - preds).mean(axis=(1, 2))
     mse = optax.squared_error(preds, batch['decoder']).mean(axis=(1, 2))
 
     return preds, loss, mae, mse
 
 
-def train_and_evaluate(config: ConfigDict):
-    logging.info("Initialising airfoilMNIST dataset.")
+def load_model_from_checkpoint(config: ConfigDict):
+    
+    orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+    variables_restored = orbax_checkpointer.restore(config.checkpoint_dir)
+
+    return variables_restored
+
+
+def create_train_state(params_key: PRNGKey, config: ConfigDict, lr_scheduler):
+    # Create model instance
+    model = VisionTransformer(config.vit)
+
+    # Initialise model and use JIT to reside params in CPU memory
+    ckpt = load_model_from_checkpoint(config=config)
+    restored_model = ckpt['model']
+    variables = restored_model['params']
+    
+
+    # Initialise train state
+    tx_trainable = optax.adamw(learning_rate=lr_scheduler,
+                     weight_decay=config.weight_decay)
+
+    tx_frozen = optax.set_to_zero()
+
+    partition_optimizers = {'trainable': tx_trainable, 'frozen': tx_frozen}
+
+    #TODO check all values in the tuple and assigne them trainable or frozen
+    trainable_layers = config.layers_to_train
+
+    param_partitions = traverse_util.path_aware_map(
+        lambda path, v: 'trainable' if any(layer in path for layer in trainable_layers) else 'trainable', variables)
+
+
+    tx = optax.multi_transform(partition_optimizers, param_partitions)
+
+    return train_state.TrainState.create(
+        apply_fn=model.apply,
+        params=variables,
+        tx=tx
+    )
+
+def fine_tune(config: ConfigDict):
 
     os.makedirs(config.output_dir, exist_ok=True)
-    mean_std_dict = {}
-
-    with open('/local/disk1/ebeqa/naca_transformer/outputs/mean_std.txt', 'r') as file:
-        for line in file:
-            label , mean, std = line.split(',')
-            mean_std_dict[label] = (float(mean), float(std))
+    logging.info("Initialising fine tune dataset.")
 
     ds_train = get_data_from_tfds(config=config, mode='train')
     ds_test = get_data_from_tfds(config=config, mode='test')
+
+    print(ds_train.cardinality().numpy())
+    print(ds_test.cardinality().numpy())
 
     steps_per_epoch = ds_train.cardinality().numpy() / config.num_epochs
     total_steps = ds_train.cardinality().numpy()
@@ -114,7 +128,8 @@ def train_and_evaluate(config: ConfigDict):
         total_steps=total_steps)
 
     # Create TrainState
-    state = create_train_state(config, lr_scheduler, rng_params)
+    state = create_train_state(rng_params, config, lr_scheduler)
+    #state = load_model_from_checkpoint(config=config)
 
     train_metrics, test_metrics, mae_metrics, mse_metrics = [], [], [], []
     train_log, test_log = [], []
@@ -137,17 +152,17 @@ def train_and_evaluate(config: ConfigDict):
         state, train_loss = train_step(state, batch, rng_dropout)
         train_log.append(train_loss)
 
-        if (step + 1) % int(steps_per_epoch) == 0 and step != 0:
-            epoch = int((step + 1) / int(steps_per_epoch))
-
+        if (step + 1) % int(steps_per_epoch) == 0 and step != 0:#training with steps instead of epochs  
+            epoch = int((step + 1) / int(steps_per_epoch))      # when data is loaded it is repeated by the number of epochs so that this checks out
+                                                                #not very elegant way to solve this but ok
             for test_batch in tfds.as_numpy(ds_test):
-                
+
                 if config.internal_geometry.set_internal_value:
-                    test_batch = set_geometry_internal_value(batch,config.internal_geometry.value)
+                    test_batch = set_geometry_internal_value(test_batch,config.internal_geometry.value)
 
-                if config.pressure_preprocessing.enable :
+                if config.pressure_preprocessing.enable:
                     test_batch = pressure_preprocessing(test_batch, config)
-
+                
                 test_batch.pop('label')
                 
                 preds, test_loss, mae, mse = test_step(state, test_batch)
@@ -172,19 +187,20 @@ def train_and_evaluate(config: ConfigDict):
                 'Epoch {}: Train_loss = {}, Test_loss = {}'.format(epoch,
                                                                    train_loss,
                                                                    test_loss))
-            ckpt = {'model': state}
-            orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
-            save_args = orbax_utils.save_args_from_target(ckpt)
-            orbax_checkpointer.save('{}/nacaVIT/{}'.format(config.output_dir,epoch), ckpt,
-                            save_args=save_args)
-    
+
             # Reset epoch losses
             train_log.clear()
             test_log.clear()
 
             if epoch % config.output_frequency == 0:
+                ckpt = {'model': state}
+                orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+                save_args = orbax_utils.save_args_from_target(ckpt)
+                orbax_checkpointer.save('{}/nacaVIT/epoch_{}'.format(config.output_dir,epoch), ckpt,
+                            save_args=save_args)
+                
                 for i in idx:
-                    y, y_hat = test_batch['decoder'][i, :, :], preds[i, :, :, ]
+                    y, y_hat = test_batch['decoder'][i], preds[i]
                     plot_delta(config, y_hat, y, epoch, i)
                     plot_fields(config, y_hat, y, epoch, i)
 
@@ -202,10 +218,9 @@ def train_and_evaluate(config: ConfigDict):
 
     
     # Save model
+    
     ckpt = {'model': state}
     orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
     save_args = orbax_utils.save_args_from_target(ckpt)
     orbax_checkpointer.save('{}/nacaVIT/{}'.format(config.output_dir,'final'), ckpt,
                             save_args=save_args)
-    
-

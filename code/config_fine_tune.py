@@ -4,19 +4,19 @@ import ml_collections
 def get_config():
     config = ml_collections.ConfigDict()
     config.dataset = '/local/disk1/ebeqa/naca_transformer/Bluff_data/bluff_body'
-    config.output_dir = '/local/disk1/ebeqa/naca_transformer/outputs/Fine_tune/fine_tune_corrupted_removed_standardized_ParaLLel/'
-    config.checkpoint_dir = '/local/disk1/ebeqa/naca_transformer/test_outputs/Naca_traning/0/checkpoints/nacaVIT'
-    config.trainer = 'fine_tune_parallel'  # or 'preprocess' or 'fine_tune'
-    config.layers_to_train = ('Layer2' , 'ConvTranspose_0')
-    config.num_epochs = 1
-    config.batch_size = 60
+    config.output_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/bluff_body_masking2'
+    config.checkpoint_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/bluff_body_pressure_normalized_Layer2_and_ConvTranspose/nacaVIT/epoch_45'
+    config.trainer = 'fine_tune'  # or 'preprocess' or 'fine_tune'
+    config.layers_to_train = ('Layer2', 'ConvTranspose_0' )
+    config.num_epochs = 10
+    config.batch_size = 20
     config.shuffle_buffer_size = 1024
     config.learning_rate_scheduler = "sgdr"
     config.learning_rate_end_value = 1e-5
     config.sgdr_restarts = 1 #int(config.num_epochs / 50)
     config.warmup_fraction = 0.1
     config.weight_decay = 0.1
-    config.output_frequency = 1
+    config.output_frequency = 5
 
     config.vit = ml_collections.ConfigDict()
     config.vit.img_size = (200, 200)
@@ -40,7 +40,7 @@ def get_config():
 
     config.pressure_preprocessing = ml_collections.ConfigDict()
     config.pressure_preprocessing.enable = True
-    config.pressure_preprocessing.type = 'standardize' # standardize , range or coefficient
+    config.pressure_preprocessing.type = 'standardize_all' # standardize , range or coefficient
     config.pressure_preprocessing.new_range = (0, 1)
     
     config.internal_geometry = ml_collections.ConfigDict()

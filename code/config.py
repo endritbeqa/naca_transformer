@@ -4,17 +4,17 @@ import ml_collections
 def get_config():
     config = ml_collections.ConfigDict()
     config.dataset =  '/local/disk1/nacaFOAM/airfoilMNIST-incompressible/'
-    config.output_dir = '/local/disk1/ebeqa/naca_transformer/outputs/pressuresse_standardization_reversed22'
-    config.trainer = 'train_parallel'  # 'train' or train_parallel or 'preprocess' or 'inference'
-    config.num_epochs = 1
-    config.batch_size = 80
+    config.output_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/naca_pressure_and_velocity_normalized'
+    config.trainer = 'train'  # 'train' or train_parallel or 'preprocess' or 'inference'
+    config.num_epochs = 50
+    config.batch_size = 20
     config.shuffle_buffer_size = 1024
     config.learning_rate_scheduler = "sgdr"
     config.learning_rate_end_value = 1e-5
     config.sgdr_restarts = 1 #int(config.num_epochs / 50)
     config.warmup_fraction = 0.1
     config.weight_decay = 0.1
-    config.output_frequency = 1
+    config.output_frequency = 5
 
     config.vit = ml_collections.ConfigDict()
     config.vit.img_size = (200, 200)
@@ -40,7 +40,7 @@ def get_config():
 
     config.pressure_preprocessing = ml_collections.ConfigDict()
     config.pressure_preprocessing.enable = True
-    config.pressure_preprocessing.type = 'standardize'
+    config.pressure_preprocessing.type = 'standardize_all'
     config.pressure_preprocessing.new_range = (0, 1)
     
     config.internal_geometry = ml_collections.ConfigDict()
