@@ -1,10 +1,3 @@
-# ----------------------------------------------------------------------------
-# Created By  : Sebastian Widmann
-# Institution : TU Munich, Department of Aerospace and Geodesy
-# Created Date: March 21, 2023
-# version ='1.0'
-# ---------------------------------------------------------------------------
-
 from stl import mesh
 import numpy as np
 import tensorflow as tf

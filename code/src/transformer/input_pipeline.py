@@ -10,7 +10,10 @@ import numpy as np
 
 
 def get_data_from_tfds(*, config, mode):
-    builder = tfds.builder_from_directory(builder_dir=config.dataset)
+    if config.fine_tune.enable:
+        builder = tfds.builder_from_directory(builder_dir=config.fine_tune.dataset)
+    else:
+        builder = tfds.builder_from_directory(builder_dir=config.dataset)
 
     #that coma multiplies the ds_train by the number of epochs so that the whole steps per epoch thing in training works out 
     ds = builder.as_dataset(

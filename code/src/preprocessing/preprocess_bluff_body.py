@@ -8,9 +8,7 @@ import tensorflow_datasets as tfds
 import numpy as np
 from tqdm import tqdm
 
-from src.preprocessing.conversion_bluff_body import vtk_to_tfTensor, create_tfExample
-from src.utilities.airfoilMNIST import prefilter_dataset
-
+from conversion_bluff_body import vtk_to_tfTensor, create_tfExample
 
 def generate_tfds_dataset(config: ConfigDict):
     """

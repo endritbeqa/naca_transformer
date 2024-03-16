@@ -14,8 +14,8 @@ import os
 import tensorflow as tf
 
 from src.preprocessing.preprocess_bluff_body import generate_tfds_dataset
-from fine_tune import fine_tune
-from fine_tune_parallel import fine_tune_parallel
+from naca_transformer.code.scrap_test_files.fine_tune import fine_tune
+from naca_transformer.code.scrap_test_files.fine_tune_parallel import fine_tune_parallel
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # disable INFO and WARNING messages
@@ -25,8 +25,8 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.85"
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_file(
     'config',
-    None,
-    '/local/disk1/ebeqa/naca_transformer/code/config.py',
+    default='config_fine_tune.py',
+    help_string='/local/disk1/ebeqa/naca_transformer/code/config.py',
     lock_config=True,
 )
 flags.mark_flag_as_required('config')

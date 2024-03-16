@@ -1,28 +1,18 @@
 from jax.tree_util import tree_structure
-import config_fine_tune as config_file
 from flax.training import train_state, orbax_utils, common_utils
-import jax
 import orbax
-import jax.numpy as jnp
 import os
-from flax import traverse_util
 from functools import partial
 import optax
 from ml_collections import ConfigDict, FrozenConfigDict
 import tensorflow_datasets as tfds
-import tensorflow as tf
 from jax.random import PRNGKey
 import logging
-import numpy as np
-from jax.experimental import mesh_utils
-from jax.sharding import Mesh
-from jax.sharding import NamedSharding
-from jax.sharding import PartitionSpec as P
 
 from src.transformer.input_pipeline import get_data_from_tfds
 from src.transformer.network import VisionTransformer
 from src.utilities.schedulers import load_learning_rate_scheduler
-from src.utilities.visualisation import plot_predictions, plot_delta, plot_loss, plot_fields
+from src.utilities.visualisation import plot_delta, plot_loss, plot_fields
 from src.utilities.pressure_preprocesing import *
 
 @partial(jax.pmap, axis_name='num_devices')
@@ -115,7 +105,7 @@ def fine_tune_parallel(config : ConfigDict):
     n_devices = jax.local_device_count()
     replicated_params = jax.tree_map(lambda x: jnp.array([x] * n_devices), params)
 
-    state = create_train_state(rng , replicated_params, FrozenConfigDict(config), lr_scheduler)
+    state = create_train_state(rng, replicated_params, FrozenConfigDict(config), lr_scheduler)
 
     train_metrics, test_metrics, train_log, test_log = [], [], [], []
 
@@ -175,14 +165,14 @@ def fine_tune_parallel(config : ConfigDict):
                 for i in sample_idx:
                     pred_data = preds[0,i,:,:,:].squeeze()
                     test_data = y_test[0,i,:,:,:].squeeze()
-                    #plot_predictions(config, pred_data, test_data, epoch,i)
-
+                    plot_delta(config, pred_data, test_data, epoch, i)
+                    plot_fields(config, pred_data, test_data, epoch, i)
             if epoch == config.num_epochs:
                 for i in sample_idx:
                     pred_data = preds[0,i,:,:,:].squeeze()
                     test_data = y_test[0,i,:,:,:].squeeze()
-                    #plot_delta(config, pred_data, test_data, epoch, i)
-                    #plot_fields(config, pred_data, test_data, epoch, i)
+                    plot_delta(config, pred_data, test_data, epoch, i)
+                    plot_fields(config, pred_data, test_data, epoch, i)
 
 
     # summary_writer.flush()

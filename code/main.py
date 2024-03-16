@@ -14,8 +14,8 @@ import os
 import tensorflow as tf
 
 from src.preprocessing.preprocess import generate_tfds_dataset
-from train_parallel import train_and_evaluate_parallel
 from train import train_and_evaluate
+
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # disable INFO and WARNING messages
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.85"
@@ -25,8 +25,8 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.85"
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_file(
     'config',
-    None,
-    '/local/disk1/ebeqa/naca_transformer/code/config.py',
+    default='config.py',
+    help_string='/local/disk1/ebeqa/naca_transformer/code/config.py',
     lock_config=True,
 )
 flags.mark_flag_as_required('config')
@@ -47,8 +47,6 @@ def main(argv):
         generate_tfds_dataset(FLAGS.config)
     elif FLAGS.config.trainer == 'train':
         train_and_evaluate(FLAGS.config)
-    elif FLAGS.config.trainer == 'train_parallel':
-        train_and_evaluate_parallel(FLAGS.config)    
     elif FLAGS.config.trainer == 'inference':
         print('Implement inference')
     else:

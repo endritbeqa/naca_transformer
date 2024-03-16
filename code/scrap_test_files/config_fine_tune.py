@@ -4,11 +4,11 @@ import ml_collections
 def get_config():
     config = ml_collections.ConfigDict()
     config.dataset = '/local/disk1/ebeqa/naca_transformer/Bluff_data/bluff_body'
-    config.output_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/bluff_body_masking2'
-    config.checkpoint_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/bluff_body_pressure_normalized_Layer2_and_ConvTranspose/nacaVIT/epoch_45'
-    config.trainer = 'fine_tune'  # or 'preprocess' or 'fine_tune'
+    config.output_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/parallel_test'
+    config.checkpoint_dir = '/local/disk1/ebeqa/naca_transformer/Outputs/parallel_test/nacaVIT'
+    config.trainer = 'fine_tune'  # or 'preprocess' or 'fine_tune' or fine_tune_parallel
     config.layers_to_train = ('Layer2', 'ConvTranspose_0' )
-    config.num_epochs = 10
+    config.num_epochs = 1
     config.batch_size = 20
     config.shuffle_buffer_size = 1024
     config.learning_rate_scheduler = "sgdr"
